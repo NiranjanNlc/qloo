@@ -1,0 +1,235 @@
+# Qloo Supermarket Layout Optimizer Configuration
+# This file contains all configurable parameters for the optimization algorithms
+
+# Algorithm Configuration
+optimization:
+  # Section-level optimization settings
+  section_optimizer:
+    enabled: true
+    target_utilization: 0.85
+    min_performance_threshold: 0.7
+    rebalance_frequency_days: 7
+    
+  # Heuristic penalties and rewards
+  heuristics:
+    # Crowding penalty parameters
+    crowding_penalty:
+      enabled: true
+      base_penalty: 0.15          # Base penalty for overcrowded sections
+      utilization_threshold: 0.9  # Utilization level where penalty starts
+      max_penalty: 0.5           # Maximum penalty multiplier
+      exponential_scaling: 2.0   # Exponential scaling factor for severe crowding
+      
+    # Adjacency reward parameters  
+    adjacency_reward:
+      enabled: true
+      base_reward: 0.1           # Base reward for good adjacency
+      association_threshold: 1.5 # Minimum lift for adjacency consideration
+      max_reward: 0.3           # Maximum reward multiplier
+      distance_decay: 0.8       # How quickly reward decays with distance
+      category_bonus: 0.05      # Additional bonus for same-category adjacency
+      
+    # Popular product placement
+    popularity_bonus:
+      enabled: true
+      high_traffic_multiplier: 1.2    # Bonus for placing popular items in high-traffic areas
+      popularity_threshold: 0.3       # Support threshold for "popular" classification
+      endcap_bonus: 1.5              # Additional bonus for popular items in endcaps
+      
+    # Cross-selling optimization
+    cross_selling:
+      enabled: true
+      min_confidence: 0.6            # Minimum confidence for cross-selling consideration
+      complementary_bonus: 0.2       # Bonus for placing complementary products nearby
+      basket_affinity_weight: 1.0    # Weight for products often bought together
+      
+    # Seasonal and promotional adjustments
+    seasonal_adjustments:
+      enabled: false                 # Enable seasonal optimization
+      seasonal_boost: 0.15          # Boost for seasonal products during peak times
+      promotional_priority: 1.3     # Priority multiplier for promotional items
+      clearance_penalty: -0.1      # Penalty for placing clearance items in prime spots
+
+# Store Layout Configuration
+store_layout:
+  # Zone definitions and properties
+  zones:
+    entrance:
+      traffic_multiplier: 1.0
+      prime_real_estate: true
+      optimal_for_impulse: true
+      
+    dairy_cooler:
+      traffic_multiplier: 0.85
+      temperature_controlled: true
+      destination_category: true
+      
+    meat_deli:
+      traffic_multiplier: 0.75
+      service_counter: true
+      high_value_products: true
+      
+    center_aisles:
+      traffic_multiplier: 0.6
+      bulk_storage: true
+      cost_effective_placement: true
+      
+    checkout:
+      traffic_multiplier: 1.0
+      impulse_items_only: true
+      limited_capacity: true
+      
+  # Section-specific parameters
+  sections:
+    endcaps:
+      capacity_multiplier: 0.3       # Endcaps have limited space
+      visibility_bonus: 2.0          # High visibility boost
+      turnover_requirement: high     # Require high-turnover products
+      
+    perimeter:
+      freshness_priority: true       # Prioritize fresh products
+      category_coherence: high       # Keep categories together
+      
+    aisles:
+      capacity_multiplier: 1.0       # Standard capacity
+      flexibility: high              # Can accommodate various categories
+
+# Performance Metrics and Thresholds
+performance:
+  # KPI targets
+  targets:
+    overall_utilization: 0.80
+    cross_selling_lift: 0.15
+    customer_flow_efficiency: 0.75
+    category_coherence: 0.85
+    
+  # Optimization thresholds
+  thresholds:
+    min_improvement_threshold: 0.05  # Minimum improvement to trigger changes
+    stability_period_days: 14        # Days to wait before re-optimizing
+    confidence_threshold: 0.7        # Minimum confidence for recommendations
+    
+  # Weights for multi-objective optimization
+  objective_weights:
+    revenue_optimization: 0.4        # Weight for revenue-focused objectives
+    customer_experience: 0.3         # Weight for customer flow and convenience
+    operational_efficiency: 0.2      # Weight for stocking and maintenance ease
+    space_utilization: 0.1          # Weight for efficient space usage
+
+# Association Rules Configuration
+association_rules:
+  # Mining parameters
+  mining:
+    min_support: 0.03               # Minimum support for frequent itemsets
+    min_confidence: 0.6             # Minimum confidence for association rules
+    min_lift: 1.1                   # Minimum lift for meaningful associations
+    max_itemset_size: 4             # Maximum size of itemsets to consider
+    
+  # Filtering and quality control
+  filtering:
+    remove_trivial_rules: true      # Filter out obvious associations (milk -> dairy)
+    confidence_decay_days: 30       # Days after which rule confidence starts to decay
+    seasonal_adjustment: true       # Adjust rules based on seasonal patterns
+    
+  # Real-time updates
+  updates:
+    incremental_learning: true      # Update rules with new transaction data
+    batch_update_frequency: daily   # How often to recompute rules
+    rule_expiry_days: 90           # Days after which rules expire without reinforcement
+
+# Price and Promotion Integration
+pricing:
+  # Discount optimization
+  discounts:
+    max_discount_percent: 25.0      # Maximum allowed discount
+    min_margin_protection: 5.0      # Minimum margin to maintain
+    combo_discount_strategy: balanced # conservative, aggressive, balanced, market_based
+    
+  # Promotional placement
+  promotions:
+    feature_endcap_requirement: true    # Promoted items should be in endcaps
+    clearance_section_isolation: true   # Keep clearance items in designated areas
+    price_point_grouping: true          # Group similar price points together
+
+# Data Sources and Quality
+data:
+  # Transaction data requirements
+  transactions:
+    min_transaction_count: 1000     # Minimum transactions for reliable analysis
+    lookback_period_days: 90        # Days of transaction history to consider
+    exclude_returns: true           # Exclude returned items from analysis
+    
+  # Product catalog requirements
+  catalog:
+    require_category_classification: true
+    require_price_data: true
+    require_supplier_info: false
+    
+  # Quality thresholds
+  quality:
+    min_data_completeness: 0.85     # Minimum data completeness required
+    max_missing_values_percent: 10  # Maximum allowed missing values
+    outlier_detection: true         # Enable outlier detection and handling
+
+# Reporting and Monitoring
+reporting:
+  # Performance tracking
+  monitoring:
+    real_time_alerts: false         # Enable real-time performance alerts
+    daily_summaries: true          # Generate daily performance summaries
+    weekly_deep_dive: true         # Generate detailed weekly reports
+    
+  # Alert thresholds
+  alerts:
+    performance_degradation: 0.1    # Alert if performance drops by this amount
+    utilization_critical: 0.95      # Alert if any section exceeds this utilization
+    revenue_impact: 1000           # Alert if potential revenue impact exceeds this
+    
+  # Export settings
+  exports:
+    format: ["json", "csv", "html"] # Export formats
+    include_visualizations: true    # Include charts and graphs
+    historical_comparison: true     # Include historical performance comparisons
+
+# Integration Settings
+integrations:
+  # External systems
+  qloo_api:
+    enabled: false                  # Enable Qloo API integration
+    api_key: null                  # API key for Qloo service
+    request_timeout: 30            # Timeout for API requests in seconds
+    fallback_on_failure: true     # Use local algorithms if API fails
+    
+  # Database connections
+  database:
+    type: sqlite                   # Database type (sqlite, postgresql, mysql)
+    connection_string: "data/qloo_optimizer.db"
+    connection_pool_size: 5        # Number of concurrent connections
+    
+  # File system
+  filesystem:
+    data_directory: "data/"        # Directory for data files
+    logs_directory: "logs/"        # Directory for log files
+    exports_directory: "exports/"  # Directory for exported reports
+    backup_frequency: weekly       # How often to backup data
+
+# Logging Configuration
+logging:
+  level: INFO                      # Logging level (DEBUG, INFO, WARNING, ERROR)
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  rotation: daily                  # Log rotation frequency
+  retention_days: 30              # Days to retain log files
+  
+# Development and Testing
+development:
+  debug_mode: false               # Enable debug mode
+  mock_data_generation: true      # Generate mock data for testing
+  performance_profiling: false    # Enable performance profiling
+  cache_enabled: true            # Enable caching for performance
+  
+# Version and Metadata
+metadata:
+  config_version: "1.0"
+  last_updated: "2024-01-08"
+  created_by: "Qloo Development Team"
+  description: "Configuration for Qloo Supermarket Layout Optimizer" 

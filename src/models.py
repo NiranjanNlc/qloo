@@ -10,6 +10,7 @@ from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, Field, validator, root_validator
+from dataclasses import dataclass
 
 
 class AssociationType(str, Enum):
@@ -293,4 +294,119 @@ def validate_catalog_data(products: List[Dict[str, Any]]) -> List[Product]:
     Raises:
         ValidationError: If any product data is invalid
     """
-    return [Product.parse_obj(product) for product in products] 
+    return [Product.parse_obj(product) for product in products]
+
+
+@dataclass
+class Combo:
+    """Represents a product combination/bundle for promotional offers."""
+    combo_id: str
+    name: str
+    products: List[int]  # List of product IDs
+    confidence_score: float
+    support: float  # Support value from association rules
+    lift: float  # Lift value from association rules
+    expected_discount_percent: Optional[float] = None
+    category_mix: Optional[List[str]] = None  # Categories included in combo
+    created_at: datetime = Field(default_factory=datetime.now)
+    is_active: bool = True
+    
+    def __post_init__(self):
+        """Validate combo after initialization."""
+        if not 0.0 <= self.confidence_score <= 1.0:
+            raise ValueError("Confidence score must be between 0.0 and 1.0")
+        if not 0.0 <= self.support <= 1.0:
+            raise ValueError("Support must be between 0.0 and 1.0")
+        if self.lift < 0:
+            raise ValueError("Lift must be non-negative")
+        if len(self.products) < 2:
+            raise ValueError("Combo must contain at least 2 products")
+        if self.expected_discount_percent is not None and not 0.0 <= self.expected_discount_percent <= 100.0:
+            raise ValueError("Discount percent must be between 0.0 and 100.0")
+
+
+class ComboGenerator:
+    """Generates product combinations based on association rules and confidence thresholds."""
+    
+    def __init__(self, min_confidence: float = 0.8, min_support: float = 0.01, price_api=None):
+        self.min_confidence = min_confidence
+        self.min_support = min_support
+        self.price_api = price_api
+        
+    def generate_weekly_combos(self, association_rules: List[Dict], products: List[Product]) -> List[Combo]:
+        """
+        Generate weekly product combos from association rules.
+        
+        Args:
+            association_rules: List of association rule dictionaries
+            products: List of available products
+            
+        Returns:
+            List of Combo objects meeting confidence threshold
+        """
+        combos = []
+        product_lookup = {p.id: p for p in products}
+        
+        for i, rule in enumerate(association_rules):
+            # Filter by confidence threshold
+            confidence = rule.get('confidence', 0.0)
+            support = rule.get('support', 0.0)
+            lift = rule.get('lift', 0.0)
+            
+            if confidence >= self.min_confidence and support >= self.min_support:
+                # Extract product IDs from antecedent and consequent
+                antecedent = rule.get('antecedent', [])
+                consequent = rule.get('consequent', [])
+                
+                if isinstance(antecedent, (list, tuple)) and isinstance(consequent, (list, tuple)):
+                    product_ids = list(antecedent) + list(consequent)
+                    
+                    # Get category mix
+                    categories = []
+                    for pid in product_ids:
+                        if pid in product_lookup:
+                            categories.append(product_lookup[pid].category)
+                    
+                    # Calculate discount using price API if available
+                    discount_percent = self._get_discount_suggestion(
+                        f"combo_{i}_{int(confidence*100)}", product_ids, confidence, lift
+                    )
+                    
+                    combo = Combo(
+                        combo_id=f"combo_{i}_{int(confidence*100)}",
+                        name=f"High-Confidence Combo {i+1}",
+                        products=product_ids,
+                        confidence_score=confidence,
+                        support=support,
+                        lift=lift,
+                        category_mix=list(set(categories)),
+                        expected_discount_percent=discount_percent
+                    )
+                    combos.append(combo)
+        
+        return combos
+    
+    def _get_discount_suggestion(self, combo_id: str, product_ids: List[int], 
+                               confidence: float, lift: float) -> float:
+        """Get discount suggestion from price API or fallback calculation."""
+        if self.price_api:
+            try:
+                suggestion = self.price_api.suggest_discount_for_combo(
+                    combo_id, product_ids, confidence, lift
+                )
+                return suggestion.suggested_discount_percent
+            except Exception:
+                # Fall back to basic calculation if API fails
+                pass
+                
+        return self._calculate_discount_suggestion(confidence, lift)
+    
+    def _calculate_discount_suggestion(self, confidence: float, lift: float) -> float:
+        """Calculate suggested discount percentage based on rule strength."""
+        # Base discount calculation: higher confidence and lift = lower discount needed
+        base_discount = 15.0  # Base 15% discount
+        confidence_factor = (1.0 - confidence) * 10  # Up to 10% reduction for high confidence
+        lift_factor = max(0, (2.0 - lift) * 5)  # Up to 5% reduction for high lift
+        
+        suggested_discount = base_discount + confidence_factor + lift_factor
+        return min(25.0, max(5.0, suggested_discount))  # Cap between 5% and 25% 
