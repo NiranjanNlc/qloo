@@ -121,11 +121,14 @@ class ConfigurationManager:
 
     def get_heuristic_config(self, heuristic_name: str) -> Dict[str, Any]:
         """Get configuration for a specific heuristic."""
-        return cast(Dict[str, Any], (
-            self.config.get("optimization", {})
-            .get("heuristics", {})
-            .get(heuristic_name, {})
-        ))
+        return cast(
+            Dict[str, Any],
+            (
+                self.config.get("optimization", {})
+                .get("heuristics", {})
+                .get(heuristic_name, {})
+            ),
+        )
 
     def get_performance_config(self) -> Dict[str, Any]:
         """Get performance configuration."""
@@ -595,7 +598,9 @@ class HeuristicOptimizer:
                 section_id
             )
             if section:
-                utilization = self._get_products_in_section(section_id) / section.capacity
+                utilization = (
+                    self._get_products_in_section(section_id) / section.capacity
+                )
                 self._section_utilization_cache[section_id] = float(utilization)
                 return float(utilization)
 
@@ -608,9 +613,12 @@ class HeuristicOptimizer:
                 section_id
             )
             if section:
-                return cast(List[int], self.layout_optimizer.section_optimizer._get_products_in_section(
-                    section
-                ))
+                return cast(
+                    List[int],
+                    self.layout_optimizer.section_optimizer._get_products_in_section(
+                        section
+                    ),
+                )
         return []
 
     def _get_product_popularity(self, product_id: int) -> float:
@@ -645,10 +653,12 @@ class HeuristicOptimizer:
         self, loc1: ProductLocation, loc2: ProductLocation
     ) -> float:
         """Calculate normalized distance between two locations."""
-        return float(np.sqrt(
-            (loc1.x_coordinate - loc2.x_coordinate) ** 2
-            + (loc1.y_coordinate - loc2.y_coordinate) ** 2
-        ))
+        return float(
+            np.sqrt(
+                (loc1.x_coordinate - loc2.x_coordinate) ** 2
+                + (loc1.y_coordinate - loc2.y_coordinate) ** 2
+            )
+        )
 
     def _generate_placement_reasoning(
         self, section: "StoreSection", improvement: float

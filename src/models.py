@@ -211,7 +211,9 @@ class AssociationRule(BaseModel):
         return v
 
     @root_validator(skip_on_failure=True)
-    def antecedent_consequent_must_differ(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+    def antecedent_consequent_must_differ(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
         antecedent = values.get("antecedent_product_id")
         consequent = values.get("consequent_product_id")
         if antecedent == consequent:
@@ -419,7 +421,10 @@ class ComboGenerator:
     """Generates product combinations based on association rules and confidence thresholds."""
 
     def __init__(
-        self, min_confidence: float = 0.8, min_support: float = 0.01, price_api: Any = None
+        self,
+        min_confidence: float = 0.8,
+        min_support: float = 0.01,
+        price_api: Any = None,
     ) -> None:
         self.min_confidence = min_confidence
         self.min_support = min_support

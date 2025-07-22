@@ -60,7 +60,9 @@ class QlooClient:
             timeout: Request timeout in seconds (default: 10.0)
         """
         self.api_key = api_key or os.getenv("QLOO_API_KEY")
-        base_url_from_env = base_url or os.getenv("QLOO_BASE_URL", "https://hackathon.api.qloo.com")
+        base_url_from_env = base_url or os.getenv(
+            "QLOO_BASE_URL", "https://hackathon.api.qloo.com"
+        )
         self.base_url: str = base_url_from_env or "https://hackathon.api.qloo.com"
         self.max_retries = max_retries
         self.initial_delay = initial_delay

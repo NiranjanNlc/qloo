@@ -198,7 +198,9 @@ class WeeklyKPICalculator:
         avg_discount = 0.0
         if discount_combos:
             avg_discount = sum(
-                c.expected_discount_percent for c in discount_combos if c.expected_discount_percent is not None
+                c.expected_discount_percent
+                for c in discount_combos
+                if c.expected_discount_percent is not None
             ) / len(discount_combos)
 
         # Revenue potential (simplified calculation)
@@ -611,9 +613,11 @@ def generate_weekly_report_cli(
         # Create default config if none provided
         if config_path is None:
             config_path = create_default_config()
-        
+
         # Ensure config_path is not None before passing to from_yaml_config
-        assert config_path is not None, "config_path should not be None after default creation"
+        assert (
+            config_path is not None
+        ), "config_path should not be None after default creation"
 
         # TODO: In a real implementation, load actual data from database
         # For now, generate mock data for demonstration

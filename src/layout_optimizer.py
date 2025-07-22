@@ -484,10 +484,12 @@ class SupermarketLayoutOptimizer:
         self, loc1: ProductLocation, loc2: ProductLocation
     ) -> float:
         """Calculate Euclidean distance between two locations."""
-        return float(np.sqrt(
-            (loc1.x_coordinate - loc2.x_coordinate) ** 2
-            + (loc1.y_coordinate - loc2.y_coordinate) ** 2
-        ))
+        return float(
+            np.sqrt(
+                (loc1.x_coordinate - loc2.x_coordinate) ** 2
+                + (loc1.y_coordinate - loc2.y_coordinate) ** 2
+            )
+        )
 
     def _find_optimal_location_near(
         self, target_location: ProductLocation, category: str

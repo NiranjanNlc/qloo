@@ -240,9 +240,9 @@ class ComboScorer:
         if expected_frequency == 0:
             lift_score = 0.0
         else:
-            lift_score = float(min(
-                combo_frequency / expected_frequency / 10.0, 1.0
-            ))  # Normalize
+            lift_score = float(
+                min(combo_frequency / expected_frequency / 10.0, 1.0)
+            )  # Normalize
 
         # Size penalty (larger combos are harder to achieve)
         size_penalty = 1.0 - (len(combo_products) - 2) * 0.1
@@ -516,7 +516,9 @@ class PopularityScorer:
             return 0.5  # Neutral if season unknown
 
         # Calculate average frequency by season
-        seasonal_counts: dict[str, list] = {season: [] for season in season_mapping.keys()}
+        seasonal_counts: dict[str, list] = {
+            season: [] for season in season_mapping.keys()
+        }
 
         for timestamp, transaction in transaction_history:
             month = timestamp.month

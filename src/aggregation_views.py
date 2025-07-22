@@ -223,9 +223,7 @@ class AssociationAggregator:
         """
         )
 
-    def store_association_rules(
-        self, rules: List[Dict], week_start: datetime
-    ) -> None:
+    def store_association_rules(self, rules: List[Dict], week_start: datetime) -> None:
         """
         Store association rules for a given week.
 
