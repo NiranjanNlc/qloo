@@ -9,7 +9,7 @@ layout optimization.
 import os
 import time
 import random
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, cast
 import requests
 from dotenv import load_dotenv
 
@@ -60,9 +60,8 @@ class QlooClient:
             timeout: Request timeout in seconds (default: 10.0)
         """
         self.api_key = api_key or os.getenv("QLOO_API_KEY")
-        self.base_url = base_url or os.getenv(
-            "QLOO_BASE_URL", "https://hackathon.api.qloo.com"
-        )
+        base_url_from_env = base_url or os.getenv("QLOO_BASE_URL", "https://hackathon.api.qloo.com")
+        self.base_url: str = base_url_from_env or "https://hackathon.api.qloo.com"
         self.max_retries = max_retries
         self.initial_delay = initial_delay
         self.max_delay = max_delay
@@ -95,9 +94,9 @@ class QlooClient:
         delay = min(delay, self.max_delay)
 
         # Add jitter (±25% random variation) to avoid thundering herd
-        jitter = delay * 0.25 * (2 * random.random() - 1)
+        jitter = delay * 0.25 * (2 * float(random.random()) - 1)
 
-        return max(0, delay + jitter)
+        return float(max(0, delay + jitter))
 
     def _should_retry(self, exception: Exception, attempt: int) -> bool:
         """
@@ -166,7 +165,7 @@ class QlooClient:
                     timeout=self.timeout,
                 )
                 response.raise_for_status()
-                return response.json()
+                return cast(Dict[str, Any], response.json())
 
             except Exception as e:
                 is_last_attempt = attempt == self.max_retries
@@ -223,7 +222,7 @@ class QlooClient:
                 "search", method="GET", params=params
             )
             # Return the results from the search API response
-            return response.get("results", [])
+            return cast(List[Dict[str, Any]], response.get("results", []))
 
         except Exception as e:
             print(f"API call failed, returning mock data: {e}")
@@ -396,7 +395,7 @@ class QlooClient:
             except requests.HTTPError as e:
                 results[endpoint] = {
                     "status": "error",
-                    "status_code": e.response.status_code,
+                    "status_code": str(e.response.status_code),
                     "error": e.response.text,
                 }
             except Exception as e:
@@ -442,7 +441,7 @@ class QlooClient:
                 results[f"combination_{i}"] = {
                     "params": params,
                     "status": "error",
-                    "status_code": e.response.status_code,
+                    "status_code": str(e.response.status_code),
                     "error": e.response.text,
                 }
             except Exception as e:

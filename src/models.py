@@ -6,7 +6,7 @@ data structures, and internal representations used throughout the
 supermarket layout optimizer application.
 """
 
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Type
 from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, Field, validator, root_validator
@@ -48,7 +48,7 @@ class QlooSearchResult(BaseModel):
     )
 
     @validator("confidence_score", "relevance_score")
-    def score_must_be_valid(cls, v):
+    def score_must_be_valid(cls, v: Any) -> Any:
         if v is not None and (v < 0 or v > 1):
             raise ValueError("Score must be between 0 and 1")
         return v
@@ -69,7 +69,7 @@ class QlooSearchResponse(BaseModel):
     query: Optional[str] = Field(None, description="Original search query")
 
     @validator("results")
-    def results_must_be_list(cls, v):
+    def results_must_be_list(cls, v: Any) -> Any:
         if not isinstance(v, list):
             raise ValueError("Results must be a list")
         return v
@@ -97,13 +97,13 @@ class ProductAssociation(BaseModel):
     )
 
     @validator("association_strength", "support", "confidence")
-    def score_range_validation(cls, v):
+    def score_range_validation(cls, v: Any) -> Any:
         if v is not None and (v < 0 or v > 1):
             raise ValueError("Score must be between 0 and 1")
         return v
 
     @validator("lift")
-    def lift_validation(cls, v):
+    def lift_validation(cls, v: Any) -> Any:
         if v is not None and v <= 0:
             raise ValueError("Lift must be greater than 0")
         return v
@@ -121,7 +121,7 @@ class ProductAssociationsResponse(BaseModel):
     )
 
     @validator("associations")
-    def associations_must_be_list(cls, v):
+    def associations_must_be_list(cls, v: Any) -> Any:
         if not isinstance(v, list):
             raise ValueError("Associations must be a list")
         return v
@@ -148,16 +148,17 @@ class CategoryInsights(BaseModel):
     )
 
     @validator("seasonal_trends")
-    def validate_seasonal_trends(cls, v):
+    def validate_seasonal_trends(cls, v: Any) -> Any:
         if v is not None:
             valid_seasons = {"spring", "summer", "fall", "winter", "autumn"}
-            for season, score in v.items():
-                if season.lower() not in valid_seasons:
-                    raise ValueError(f"Invalid season: {season}")
-                if not isinstance(score, (int, float)) or score < 0 or score > 1:
-                    raise ValueError(
-                        f"Invalid score for season {season}: must be between 0 and 1"
-                    )
+            if not isinstance(v, dict):
+                raise ValueError("Seasonal trends must be a dictionary")
+            # Validate season keys
+            invalid_seasons = set(v.keys()) - valid_seasons
+            if invalid_seasons:
+                raise ValueError(
+                    f"Invalid seasons: {invalid_seasons}. Valid: {valid_seasons}"
+                )
         return v
 
 
@@ -171,8 +172,8 @@ class Product(BaseModel):
     category: CategoryType = Field(..., description="Product category")
 
     @validator("product_name")
-    def name_must_not_be_empty(cls, v):
-        if not v.strip():
+    def name_must_not_be_empty(cls, v: Any) -> Any:
+        if not v or not v.strip():
             raise ValueError("Product name cannot be empty")
         return v.strip().title()
 
@@ -204,17 +205,17 @@ class AssociationRule(BaseModel):
     lift: float = Field(..., gt=0.0, description="Lift metric")
 
     @validator("antecedent_product_id", "consequent_product_id")
-    def product_ids_must_be_positive(cls, v):
+    def product_ids_must_be_positive(cls, v: Any) -> Any:
         if v <= 0:
             raise ValueError("Product ID must be positive")
         return v
 
     @root_validator(skip_on_failure=True)
-    def antecedent_consequent_must_differ(cls, values):
+    def antecedent_consequent_must_differ(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         antecedent = values.get("antecedent_product_id")
         consequent = values.get("consequent_product_id")
         if antecedent == consequent:
-            raise ValueError("Antecedent and consequent products must be different")
+            raise ValueError("Antecedent and consequent product IDs must be different")
         return values
 
 
@@ -276,11 +277,11 @@ class APIHealthResponse(BaseModel):
     uptime: Optional[float] = Field(None, description="API uptime in seconds")
 
     @validator("status")
-    def status_must_be_valid(cls, v):
-        valid_statuses = {"ok", "healthy", "unhealthy", "error"}
-        if v.lower() not in valid_statuses:
-            raise ValueError(f"Invalid status: {v}")
-        return v.lower()
+    def status_must_be_valid(cls, v: Any) -> Any:
+        valid_statuses = ["healthy", "degraded", "unhealthy"]
+        if v not in valid_statuses:
+            raise ValueError(f"Status must be one of: {valid_statuses}")
+        return v
 
 
 class ErrorResponse(BaseModel):
@@ -293,9 +294,9 @@ class ErrorResponse(BaseModel):
     )
 
     @validator("status_code")
-    def validate_status_code(cls, v):
-        if v is not None and (v < 100 or v > 599):
-            raise ValueError("Invalid HTTP status code")
+    def validate_status_code(cls, v: Any) -> Any:
+        if not isinstance(v, int) or v < 100 or v > 599:
+            raise ValueError("Status code must be a valid HTTP status code")
         return v
 
 
@@ -312,10 +313,10 @@ class CatalogStatistics(BaseModel):
     )
 
     @validator("categories")
-    def categories_counts_must_be_non_negative(cls, v):
+    def categories_counts_must_be_non_negative(cls, v: Any) -> Any:
         for category, count in v.items():
             if count < 0:
-                raise ValueError(f"Category count for {category} cannot be negative")
+                raise ValueError(f"Category count for {category} must be non-negative")
         return v
 
 
@@ -397,7 +398,7 @@ class Combo:
     created_at: datetime = Field(default_factory=datetime.now)
     is_active: bool = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate combo after initialization."""
         if not 0.0 <= self.confidence_score <= 1.0:
             raise ValueError("Confidence score must be between 0.0 and 1.0")
@@ -418,8 +419,8 @@ class ComboGenerator:
     """Generates product combinations based on association rules and confidence thresholds."""
 
     def __init__(
-        self, min_confidence: float = 0.8, min_support: float = 0.01, price_api=None
-    ):
+        self, min_confidence: float = 0.8, min_support: float = 0.01, price_api: Any = None
+    ) -> None:
         self.min_confidence = min_confidence
         self.min_support = min_support
         self.price_api = price_api
@@ -438,7 +439,7 @@ class ComboGenerator:
             List of Combo objects meeting confidence threshold
         """
         combos = []
-        product_lookup = {p.id: p for p in products}
+        product_lookup = {p.product_id: p for p in products}
 
         for i, rule in enumerate(association_rules):
             # Filter by confidence threshold
@@ -493,7 +494,7 @@ class ComboGenerator:
                 suggestion = self.price_api.suggest_discount_for_combo(
                     combo_id, product_ids, confidence, lift
                 )
-                return suggestion.suggested_discount_percent
+                return float(suggestion.suggested_discount_percent)
             except Exception:
                 # Fall back to basic calculation if API fails
                 pass

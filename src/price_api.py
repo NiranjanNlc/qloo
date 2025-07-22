@@ -135,7 +135,8 @@ class PriceAPIStub:
 
         except Exception as e:
             logger.warning(f"Error calculating discount for combo {combo_id}: {e}")
-            return self._fallback_discount_suggestion(combo_id, strategy)
+            effective_strategy = strategy or self.default_strategy
+            return self._fallback_discount_suggestion(combo_id, effective_strategy)
 
     def _generate_mock_pricing_data(self) -> Dict[int, PricePoint]:
         """Generate mock pricing data for simulation."""

@@ -80,7 +80,7 @@ class SupermarketLayoutOptimizer:
         # Initialize default store zones
         self._initialize_default_zones()
 
-    def _initialize_default_zones(self):
+    def _initialize_default_zones(self) -> None:
         """Initialize default store zones with typical supermarket layout."""
         self.store_zones = {
             "entrance": StoreZone(
@@ -138,7 +138,7 @@ class SupermarketLayoutOptimizer:
         product_catalog: pd.DataFrame,
         transactions_df: Optional[pd.DataFrame] = None,
         current_layout_df: Optional[pd.DataFrame] = None,
-    ):
+    ) -> None:
         """
         Load product catalog and training data.
 
@@ -166,7 +166,7 @@ class SupermarketLayoutOptimizer:
         else:
             self._generate_initial_layout()
 
-    def _build_association_graph(self):
+    def _build_association_graph(self) -> None:
         """Build a graph of product associations for layout optimization."""
         if not self.association_engine or not self.association_engine.is_trained:
             return
@@ -174,37 +174,42 @@ class SupermarketLayoutOptimizer:
         self.association_graph = nx.Graph()
 
         # Add all products as nodes
-        for _, product in self.product_catalog.iterrows():
-            self.association_graph.add_node(
-                product["product_id"],
-                name=product["product_name"],
-                category=product["category"],
-            )
+        if self.product_catalog is not None:
+            for _, product in self.product_catalog.iterrows():
+                self.association_graph.add_node(
+                    product["product_id"],
+                    name=product["product_name"],
+                    category=product["category"],
+                )
 
         # Add edges based on association rules
-        for rule in self.association_engine.association_rules:
-            # Create edges between all products in antecedent and consequent
-            antecedent_list = list(rule["antecedent"])
-            consequent_list = list(rule["consequent"])
+        if self.association_engine and self.association_engine.association_rules:
+            for rule in self.association_engine.association_rules:
+                # Create edges between all products in antecedent and consequent
+                antecedent_list = list(rule["antecedent"])
+                consequent_list = list(rule["consequent"])
 
-            for ant_product in antecedent_list:
-                for cons_product in consequent_list:
-                    if (
-                        ant_product in self.association_graph.nodes
-                        and cons_product in self.association_graph.nodes
-                    ):
+                for ant_product in antecedent_list:
+                    for cons_product in consequent_list:
+                        if (
+                            ant_product in self.association_graph.nodes
+                            and cons_product in self.association_graph.nodes
+                        ):
 
-                        # Add edge with weight based on lift
-                        self.association_graph.add_edge(
-                            ant_product,
-                            cons_product,
-                            weight=rule["lift"],
-                            confidence=rule["confidence"],
-                            support=rule["support"],
-                        )
+                            # Add edge with weight based on lift
+                            self.association_graph.add_edge(
+                                ant_product,
+                                cons_product,
+                                weight=rule["lift"],
+                                confidence=rule["confidence"],
+                                support=rule["support"],
+                            )
 
-    def _load_current_layout(self, layout_df: pd.DataFrame):
+    def _load_current_layout(self, layout_df: pd.DataFrame) -> None:
         """Load current product layout from DataFrame."""
+        if self.product_catalog is None:
+            return
+
         for _, row in layout_df.iterrows():
             product_info = self.product_catalog[
                 self.product_catalog["product_id"] == row["product_id"]
@@ -221,8 +226,11 @@ class SupermarketLayoutOptimizer:
             )
             self.current_layout[row["product_id"]] = location
 
-    def _generate_initial_layout(self):
+    def _generate_initial_layout(self) -> None:
         """Generate an initial layout based on product categories."""
+        if self.product_catalog is None:
+            return
+
         category_zones = {
             "Produce": "entrance",
             "Dairy": "dairy_cooler",
@@ -253,7 +261,7 @@ class SupermarketLayoutOptimizer:
             self.current_layout[product["product_id"]] = location
 
     def optimize_layout(
-        self, optimization_goals: List[str] = None
+        self, optimization_goals: Optional[List[str]] = None
     ) -> List[LayoutRecommendation]:
         """
         Generate layout optimization recommendations.
@@ -290,7 +298,7 @@ class SupermarketLayoutOptimizer:
 
     def _optimize_for_associations(self) -> List[LayoutRecommendation]:
         """Generate recommendations based on product associations."""
-        recommendations = []
+        recommendations: List[LayoutRecommendation] = []
 
         if not self.association_graph:
             return recommendations
@@ -441,8 +449,8 @@ class SupermarketLayoutOptimizer:
                             product_name=location.product_name,
                             category=location.category,
                             zone=best_zone.zone_id,
-                            x_coordinate=center_x,
-                            y_coordinate=center_y,
+                            x_coordinate=float(center_x),
+                            y_coordinate=float(center_y),
                             shelf_priority=location.shelf_priority,
                         )
 
@@ -476,10 +484,10 @@ class SupermarketLayoutOptimizer:
         self, loc1: ProductLocation, loc2: ProductLocation
     ) -> float:
         """Calculate Euclidean distance between two locations."""
-        return np.sqrt(
+        return float(np.sqrt(
             (loc1.x_coordinate - loc2.x_coordinate) ** 2
             + (loc1.y_coordinate - loc2.y_coordinate) ** 2
-        )
+        ))
 
     def _find_optimal_location_near(
         self, target_location: ProductLocation, category: str
@@ -670,7 +678,7 @@ class SectionLevelOptimizer:
         # Initialize default sections
         self._initialize_store_sections()
 
-    def _initialize_store_sections(self):
+    def _initialize_store_sections(self) -> None:
         """Initialize detailed store sections within each zone."""
         sections = [
             # Entrance/Produce sections
@@ -903,7 +911,7 @@ class SectionLevelOptimizer:
         self, section: StoreSection, criteria: Dict
     ) -> List[int]:
         """Get candidate products that could be placed in this section."""
-        candidates = []
+        candidates: List[int] = []
 
         if not self.parent_optimizer.product_catalog:
             return candidates
@@ -1153,7 +1161,7 @@ class SectionLevelOptimizer:
         }
 
         # Section utilization analysis
-        utilization_by_zone = {}
+        utilization_by_zone: dict[str, list] = {}
         for section in self.store_sections.values():
             zone = section.parent_zone
             if zone not in utilization_by_zone:

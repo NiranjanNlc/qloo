@@ -9,13 +9,15 @@ This module implements advanced heuristics for layout optimization including:
 - Configuration-driven parameter management
 """
 
-import yaml
+import os
+import logging
+from typing import Dict, List, Optional, Tuple, Any, cast
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Optional, Any
+import yaml
+from datetime import datetime, timedelta
 from dataclasses import dataclass
 from pathlib import Path
-import logging
 
 from models import Product
 from layout_optimizer import ProductLocation, StoreSection, SupermarketLayoutOptimizer
@@ -67,7 +69,7 @@ class ConfigurationManager:
         """Load configuration from YAML file."""
         try:
             with open(self.config_path, "r") as f:
-                return yaml.safe_load(f)
+                return cast(Dict[str, Any], yaml.safe_load(f))
         except FileNotFoundError:
             logger.warning(f"Config file {self.config_path} not found. Using defaults.")
             return self._get_default_config()
@@ -119,17 +121,17 @@ class ConfigurationManager:
 
     def get_heuristic_config(self, heuristic_name: str) -> Dict[str, Any]:
         """Get configuration for a specific heuristic."""
-        return (
+        return cast(Dict[str, Any], (
             self.config.get("optimization", {})
             .get("heuristics", {})
             .get(heuristic_name, {})
-        )
+        ))
 
     def get_performance_config(self) -> Dict[str, Any]:
         """Get performance configuration."""
-        return self.config.get("performance", {})
+        return cast(Dict[str, Any], self.config.get("performance", {}))
 
-    def reload_config(self):
+    def reload_config(self) -> None:
         """Reload configuration from file."""
         self.config = self._load_config()
 
@@ -153,9 +155,9 @@ class HeuristicOptimizer:
         self.config_manager = config_manager or ConfigurationManager()
 
         # Cache for performance
-        self._section_utilization_cache = {}
-        self._product_popularity_cache = {}
-        self._association_cache = {}
+        self._section_utilization_cache: dict[str, float] = {}
+        self._product_popularity_cache: dict[int, float] = {}
+        self._association_cache: dict[tuple, float] = {}
 
     def calculate_heuristic_scores(
         self, target_products: Optional[List[int]] = None
@@ -279,7 +281,7 @@ class HeuristicOptimizer:
             f"(utilization: {utilization:.2f})"
         )
 
-        return penalty
+        return float(penalty)
 
     def _calculate_adjacency_reward(
         self, product_id: int, location: ProductLocation
@@ -338,7 +340,7 @@ class HeuristicOptimizer:
         reward = min(reward, max_reward)
 
         logger.debug(f"Adjacency reward for product {product_id}: {reward:.3f}")
-        return reward
+        return float(reward)
 
     def _calculate_popularity_bonus(
         self, product_id: int, location: ProductLocation
@@ -380,7 +382,7 @@ class HeuristicOptimizer:
             f"Popularity bonus for product {product_id}: {bonus:.3f} "
             f"(popularity: {popularity:.2f})"
         )
-        return bonus
+        return float(bonus)
 
     def _calculate_cross_selling_bonus(
         self, product_id: int, location: ProductLocation
@@ -427,7 +429,7 @@ class HeuristicOptimizer:
                     bonus += rule_bonus
 
         logger.debug(f"Cross-selling bonus for product {product_id}: {bonus:.3f}")
-        return bonus
+        return float(bonus)
 
     def generate_placement_suggestions(
         self, min_improvement: Optional[float] = None
@@ -578,7 +580,7 @@ class HeuristicOptimizer:
                     <= location.y_coordinate
                     <= section.y_range[1]
                 ):
-                    return section_id
+                    return str(section_id)
 
         return f"{location.zone}_main"  # Fallback
 
@@ -593,10 +595,9 @@ class HeuristicOptimizer:
                 section_id
             )
             if section:
-                products_in_section = len(self._get_products_in_section(section_id))
-                utilization = products_in_section / section.capacity
-                self._section_utilization_cache[section_id] = utilization
-                return utilization
+                utilization = self._get_products_in_section(section_id) / section.capacity
+                self._section_utilization_cache[section_id] = float(utilization)
+                return float(utilization)
 
         return 0.7  # Default assumption
 
@@ -607,9 +608,9 @@ class HeuristicOptimizer:
                 section_id
             )
             if section:
-                return self.layout_optimizer.section_optimizer._get_products_in_section(
+                return cast(List[int], self.layout_optimizer.section_optimizer._get_products_in_section(
                     section
-                )
+                ))
         return []
 
     def _get_product_popularity(self, product_id: int) -> float:
@@ -637,17 +638,17 @@ class HeuristicOptimizer:
                             )
                             break
 
-        self._product_popularity_cache[product_id] = popularity
-        return popularity
+        self._product_popularity_cache[product_id] = float(popularity)
+        return float(popularity)
 
     def _calculate_distance(
         self, loc1: ProductLocation, loc2: ProductLocation
     ) -> float:
         """Calculate normalized distance between two locations."""
-        return np.sqrt(
+        return float(np.sqrt(
             (loc1.x_coordinate - loc2.x_coordinate) ** 2
             + (loc1.y_coordinate - loc2.y_coordinate) ** 2
-        )
+        ))
 
     def _generate_placement_reasoning(
         self, section: "StoreSection", improvement: float
@@ -672,7 +673,7 @@ class HeuristicOptimizer:
 
         return f"Move to {section.section_name}: " + "; ".join(reasons)
 
-    def clear_caches(self):
+    def clear_caches(self) -> None:
         """Clear all internal caches."""
         self._section_utilization_cache.clear()
         self._product_popularity_cache.clear()

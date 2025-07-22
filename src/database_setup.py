@@ -2,7 +2,7 @@ import sqlite3
 import os
 
 
-def setup_database():
+def setup_database() -> None:
     """
     Sets up the associations.db database.
     Creates the products and associations tables if they don't exist.

@@ -7,7 +7,7 @@ and provides comprehensive evaluation metrics including ROC analysis.
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Optional, Any, Union
+from typing import Dict, List, Tuple, Optional, Any, Union, cast
 from dataclasses import dataclass
 from enum import Enum
 import logging
@@ -240,9 +240,9 @@ class ComboScorer:
         if expected_frequency == 0:
             lift_score = 0.0
         else:
-            lift_score = min(
+            lift_score = float(min(
                 combo_frequency / expected_frequency / 10.0, 1.0
-            )  # Normalize
+            ))  # Normalize
 
         # Size penalty (larger combos are harder to achieve)
         size_penalty = 1.0 - (len(combo_products) - 2) * 0.1
@@ -259,7 +259,7 @@ class ComboScorer:
                 discount_bonus = 0.05
 
         final_score = (lift_score * size_penalty) + discount_bonus
-        return min(final_score, 1.0)
+        return float(min(final_score, 1.0))
 
     @staticmethod
     def score_cross_selling_potential(
@@ -389,7 +389,7 @@ class LayoutScorer:
             + traffic_multiplier * weights["traffic"]
         )
 
-        return min(final_score, 1.0)
+        return float(min(final_score, 1.0))
 
     @staticmethod
     def _calculate_section_cross_selling(
@@ -495,7 +495,7 @@ class PopularityScorer:
         relative_change = (recent_avg - historical_avg) / historical_avg
 
         # Normalize to -1.0 to 1.0 range
-        return np.tanh(relative_change)
+        return float(np.tanh(relative_change))
 
     @staticmethod
     def score_seasonal_factor(
@@ -516,7 +516,7 @@ class PopularityScorer:
             return 0.5  # Neutral if season unknown
 
         # Calculate average frequency by season
-        seasonal_counts = {season: [] for season in season_mapping.keys()}
+        seasonal_counts: dict[str, list] = {season: [] for season in season_mapping.keys()}
 
         for timestamp, transaction in transaction_history:
             month = timestamp.month
@@ -543,7 +543,7 @@ class PopularityScorer:
             return 0.5
 
         # Return factor relative to overall average
-        return (
+        return float(
             min(current_seasonal_avg / overall_average, 2.0) / 2.0
         )  # Normalize to 0-1
 
@@ -691,9 +691,9 @@ class ROCAnalyzer:
                     / (metrics.precision[idx] + metrics.recall[idx] + 1e-8)
                 )
             else:
-                precision_scores.append(0)
-                recall_scores.append(0)
-                f1_scores.append(0)
+                precision_scores.append(np.array(0.0))
+                recall_scores.append(np.array(0.0))
+                f1_scores.append(np.array(0.0))
 
         ax4.plot(threshold_range, precision_scores, label="Precision", linewidth=2)
         ax4.plot(threshold_range, recall_scores, label="Recall", linewidth=2)
@@ -721,7 +721,7 @@ class ROCAnalyzer:
 class ScoringsEngine:
     """Main engine that coordinates all scoring algorithms."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the scoring engine."""
         self.association_scorer = AssociationScorer()
         self.combo_scorer = ComboScorer()
@@ -732,7 +732,7 @@ class ScoringsEngine:
         self.scoring_history: List[ScoringResult] = []
 
     def score_entity(
-        self, score_type: ScoreType, entity_id: Union[int, str], **kwargs
+        self, score_type: ScoreType, entity_id: Union[int, str], **kwargs: Any
     ) -> ScoringResult:
         """
         Score an entity using the specified scoring algorithm.
@@ -747,7 +747,7 @@ class ScoringsEngine:
         """
         score = 0.0
         confidence = 0.0
-        metadata = {}
+        metadata: dict[str, Any] = {}
 
         try:
             if score_type == ScoreType.ASSOCIATION_CONFIDENCE:
@@ -847,7 +847,7 @@ class ScoringsEngine:
 
         return metrics
 
-    def save_scoring_model(self, model_data: Dict[str, Any], filepath: str):
+    def save_scoring_model(self, model_data: Dict[str, Any], filepath: str) -> None:
         """Save scoring model data to disk."""
         Path(filepath).parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(model_data, filepath)
@@ -855,14 +855,14 @@ class ScoringsEngine:
 
     def load_scoring_model(self, filepath: str) -> Dict[str, Any]:
         """Load scoring model data from disk."""
-        return joblib.load(filepath)
+        return cast(Dict[str, Any], joblib.load(filepath))
 
     def get_scoring_summary(self) -> Dict[str, Any]:
         """Get summary of all scoring activities."""
         if not self.scoring_history:
             return {"message": "No scoring history available"}
 
-        by_type = {}
+        by_type: dict[str, list] = {}
         for result in self.scoring_history:
             score_type = result.score_type.value
             if score_type not in by_type:

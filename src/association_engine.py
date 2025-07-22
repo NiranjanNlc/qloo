@@ -18,7 +18,7 @@ class AssociationEngine(ABC):
     """
 
     @abstractmethod
-    def train(self, transactions_df: pd.DataFrame):
+    def train(self, transactions_df: pd.DataFrame) -> None:
         """
         Trains the association rule mining algorithm on a dataset of transactions.
 
@@ -56,11 +56,11 @@ class AprioriAssociationEngine(AssociationEngine):
 
     def __init__(
         self,
-        min_support: float = 0.1,
+        min_support: float = 0.01,
         min_confidence: float = 0.5,
         min_lift: float = 1.0,
         max_itemset_size: int = 3,
-    ):
+    ) -> None:
         """
         Initialize the Apriori Association Engine.
 
@@ -76,13 +76,13 @@ class AprioriAssociationEngine(AssociationEngine):
         self.max_itemset_size = max_itemset_size
 
         # Will be populated during training
-        self.transactions = []
-        self.frequent_itemsets = {}
-        self.association_rules = []
-        self.item_support = {}
+        self.transactions: list = []
+        self.frequent_itemsets: dict = {}
+        self.association_rules: list = []
+        self.item_support: dict = {}
         self.is_trained = False
 
-    def train(self, transactions_df: pd.DataFrame):
+    def train(self, transactions_df: pd.DataFrame) -> None:
         """
         Train the association engine on transaction data using Apriori algorithm.
 
@@ -146,7 +146,7 @@ class AprioriAssociationEngine(AssociationEngine):
         min_support_count = int(self.min_support * total_transactions)
 
         # Start with frequent 1-itemsets
-        item_counts = Counter()
+        item_counts: Counter = Counter()
         for transaction in self.transactions:
             for item in transaction:
                 item_counts[item] += 1
@@ -171,7 +171,7 @@ class AprioriAssociationEngine(AssociationEngine):
                 break
 
             # Count support for candidates
-            candidate_counts = defaultdict(int)
+            candidate_counts: dict = defaultdict(int)
             for transaction in self.transactions:
                 for candidate in candidates:
                     if candidate.issubset(transaction):
@@ -232,8 +232,8 @@ class AprioriAssociationEngine(AssociationEngine):
             for itemset, support_count in self.frequent_itemsets[size].items():
                 # Generate all possible antecedent -> consequent rules
                 for r in range(1, len(itemset)):
-                    for antecedent in combinations(itemset, r):
-                        antecedent = frozenset(antecedent)
+                    for antecedent_tuple in combinations(itemset, r):
+                        antecedent = frozenset(antecedent_tuple)
                         consequent = itemset - antecedent
 
                         # Calculate confidence
@@ -275,7 +275,7 @@ class AprioriAssociationEngine(AssociationEngine):
         """Get support count for an itemset."""
         itemset_size = len(itemset)
         if itemset_size in self.frequent_itemsets:
-            return self.frequent_itemsets[itemset_size].get(itemset, 0)
+            return int(self.frequent_itemsets[itemset_size].get(itemset, 0))
         return 0
 
     def _calculate_conviction(
@@ -286,7 +286,7 @@ class AprioriAssociationEngine(AssociationEngine):
             return float("inf")
         return (1 - expected_confidence) / (1 - confidence)
 
-    def _calculate_item_support(self):
+    def _calculate_item_support(self) -> None:
         """Calculate support for individual items."""
         if 1 in self.frequent_itemsets:
             total_transactions = len(self.transactions)
@@ -324,8 +324,8 @@ class AprioriAssociationEngine(AssociationEngine):
                 for antecedent_item in rule["antecedent"]:
                     associations.append((antecedent_item, rule["lift"]))
 
-        # Remove duplicates and sort by association strength
-        unique_associations = {}
+        # Remove duplicates based on consequent product (keep highest confidence)
+        unique_associations: dict = {}
         for item, strength in associations:
             if item not in unique_associations or strength > unique_associations[item]:
                 unique_associations[item] = strength

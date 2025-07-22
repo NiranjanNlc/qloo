@@ -33,7 +33,7 @@ class WeeklyKPI:
     change_percent: Optional[float] = None
     is_improvement: Optional[bool] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Calculate derived metrics after initialization."""
         if self.previous_value is not None and self.previous_value != 0:
             self.change_percent = (
@@ -102,7 +102,7 @@ class WeeklyKPITable:
 class WeeklyKPICalculator:
     """Calculates weekly KPIs from combo and association data."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.default_targets = {
             "combos_generated": 50,
             "high_confidence_rules": 20,
@@ -195,10 +195,10 @@ class WeeklyKPICalculator:
 
         # Discount metrics
         discount_combos = [c for c in combos if c.expected_discount_percent is not None]
-        avg_discount = 0
+        avg_discount = 0.0
         if discount_combos:
             avg_discount = sum(
-                c.expected_discount_percent for c in discount_combos
+                c.expected_discount_percent for c in discount_combos if c.expected_discount_percent is not None
             ) / len(discount_combos)
 
         # Revenue potential (simplified calculation)
@@ -237,7 +237,7 @@ class WeeklyKPICalculator:
         declines = [kpi for kpi in kpis if kpi.is_improvement is False]
 
         # Category distribution
-        category_dist = {}
+        category_dist: dict[str, int] = {}
         for combo in combos:
             if combo.category_mix:
                 for category in combo.category_mix:
@@ -299,7 +299,7 @@ class WeeklyReportGenerator:
         """Generate JSON report from KPI table."""
         return json.dumps(kpi_table.to_dict(), indent=2)
 
-    def _create_default_templates(self):
+    def _create_default_templates(self) -> None:
         """Create default Jinja2 templates."""
         # HTML template
         html_template = """
@@ -473,7 +473,7 @@ class WeeklyReport:
 
         return cls(config=config, kpi_table=kpi_table, metadata=metadata)
 
-    def to_yaml(self, output_path: str):
+    def to_yaml(self, output_path: str) -> None:
         """Export report configuration and results to YAML."""
         output_data = {
             "report_metadata": self.metadata,
@@ -498,14 +498,14 @@ class WeeklyReport:
         Returns:
             Path to generated report file
         """
-        output_dir = Path(output_dir)
-        output_dir.mkdir(exist_ok=True)
+        output_path_dir = Path(output_dir)
+        output_path_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate filename with timestamp
         week_str = self.kpi_table.week_start_date.strftime("%Y-%m-%d")
         timestamp = datetime.now().strftime("%H%M%S")
         filename = f"weekly_report_{week_str}_{timestamp}.{format_type}"
-        output_path = output_dir / filename
+        output_path = output_path_dir / filename
 
         # Generate report content
         generator = WeeklyReportGenerator()
@@ -527,7 +527,7 @@ class WeeklyReport:
         return str(output_path)
 
 
-def create_default_config(output_path: str = "weekly_report_config.yaml"):
+def create_default_config(output_path: str = "weekly_report_config.yaml") -> str:
     """Create a default YAML configuration file for weekly reports."""
     default_config = {
         "version": "1.0",
@@ -581,8 +581,8 @@ def parse_week_date(week_str: str) -> datetime:
 
 
 def generate_weekly_report_cli(
-    week: str, config_path: str = None, output_format: str = "html"
-):
+    week: str, config_path: Optional[str] = None, output_format: str = "html"
+) -> str:
     """
     CLI command to generate weekly report.
 
@@ -611,6 +611,9 @@ def generate_weekly_report_cli(
         # Create default config if none provided
         if config_path is None:
             config_path = create_default_config()
+        
+        # Ensure config_path is not None before passing to from_yaml_config
+        assert config_path is not None, "config_path should not be None after default creation"
 
         # TODO: In a real implementation, load actual data from database
         # For now, generate mock data for demonstration

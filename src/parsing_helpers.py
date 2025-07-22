@@ -7,7 +7,7 @@ handling for various API endpoints and data sources.
 """
 
 import logging
-from typing import Dict, List, Any, Optional, Union, Tuple
+from typing import Dict, List, Any, Optional, Union, Tuple, cast
 from datetime import datetime
 import json
 
@@ -448,7 +448,7 @@ def safe_parse_json(data: Union[str, bytes, Dict, List]) -> Union[Dict, List]:
             data = data.decode("utf-8")
 
         if isinstance(data, str):
-            return json.loads(data)
+            return cast(Union[Dict, List], json.loads(data))
 
         raise ParsingError(f"Cannot parse JSON from type: {type(data)}")
 

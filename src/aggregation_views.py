@@ -34,7 +34,7 @@ class AssociationAggregator:
         # Initialize database and create tables
         self._init_database()
 
-    def _init_database(self):
+    def _init_database(self) -> None:
         """Initialize database schema with required tables and views."""
         with sqlite3.connect(self.db_path) as conn:
             # Create tables for storing association data
@@ -97,7 +97,7 @@ class AssociationAggregator:
             # Create views for analysis
             self._create_analysis_views(conn)
 
-    def _create_analysis_views(self, conn: sqlite3.Connection):
+    def _create_analysis_views(self, conn: sqlite3.Connection) -> None:
         """Create SQL views for common analysis patterns."""
         conn.executescript(
             """
@@ -223,7 +223,9 @@ class AssociationAggregator:
         """
         )
 
-    def store_association_rules(self, rules: List[Dict], week_start: datetime):
+    def store_association_rules(
+        self, rules: List[Dict], week_start: datetime
+    ) -> None:
         """
         Store association rules for a given week.
 
@@ -251,7 +253,7 @@ class AssociationAggregator:
                     ),
                 )
 
-    def store_combos(self, combos: List[Combo], week_start: datetime):
+    def store_combos(self, combos: List[Combo], week_start: datetime) -> None:
         """
         Store combo data for a given week.
 
@@ -282,7 +284,7 @@ class AssociationAggregator:
                     ),
                 )
 
-    def update_weekly_metrics(self, week_start: datetime):
+    def update_weekly_metrics(self, week_start: datetime) -> None:
         """
         Calculate and store weekly metrics summary.
 
