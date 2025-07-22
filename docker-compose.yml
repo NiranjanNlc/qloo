@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # Association API Service
+  association-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qloo-association-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - QLOO_API_KEY=${QLOO_API_KEY}
+      - QLOO_BASE_URL=${QLOO_BASE_URL}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+      - ./src:/app/src:ro  # Read-only source code mounting for development
+    networks:
+      - qloo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: qloo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - qloo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL for production data (optional)
+  postgres:
+    image: postgres:15-alpine
+    container_name: qloo-postgres
+    environment:
+      - POSTGRES_DB=qloo_optimizer
+      - POSTGRES_USER=qloo_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-qloo_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+    networks:
+      - qloo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qloo_user -d qloo_optimizer"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx reverse proxy (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: qloo-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - association-api
+    networks:
+      - qloo-network
+    restart: unless-stopped
+
+  # Streamlit frontend
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: qloo-streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - API_BASE_URL=http://association-api:8000
+    volumes:
+      - ./pages:/app/pages:ro
+      - ./data:/app/data:ro
+    depends_on:
+      - association-api
+    networks:
+      - qloo-network
+    restart: unless-stopped
+
+networks:
+  qloo-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local 

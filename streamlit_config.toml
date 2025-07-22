@@ -1,0 +1,56 @@
+[global]
+# Performance optimizations
+developmentMode = false
+dataFrameSerialization = "arrow"
+maxMessageSize = 200
+
+[server]
+# Server settings for production
+port = 8501
+address = "0.0.0.0"
+baseUrlPath = ""
+enableCORS = false
+enableXsrfProtection = true
+maxUploadSize = 200
+
+# Performance settings
+headless = true
+fileWatcherType = "none"
+gatherUsageStats = false
+
+[browser]
+# Browser optimizations
+gatherUsageStats = false
+serverAddress = "localhost"
+serverPort = 8501
+
+[theme]
+# Optimize for mobile responsiveness
+primaryColor = "#1f77b4"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0f2f6"
+textColor = "#262730"
+font = "sans serif"
+
+[client]
+# Client-side optimizations
+caching = true
+toolbarMode = "minimal"
+
+[runner]
+# Code execution optimizations
+magicEnabled = true
+installTracer = false
+fixMatplotlib = true
+postScriptGC = true
+fastReruns = true
+enforceSerializableSessionState = false
+
+[ui]
+# UI optimizations for mobile
+hideTopBar = false
+hideSidebarNav = false
+
+[mapbox]
+# Disable mapbox if not needed
+token = "" 
