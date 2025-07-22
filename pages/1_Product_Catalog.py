@@ -13,7 +13,9 @@ st.write(
 )
 
 try:
-    df = pd.read_csv('data/grocery_catalog.csv')
+    df = pd.read_csv("data/grocery_catalog.csv")
     st.dataframe(df)
 except FileNotFoundError:
-    st.error("The `data/grocery_catalog.csv` file was not found. Please ensure it exists.") 
+    st.error(
+        "The `data/grocery_catalog.csv` file was not found. Please ensure it exists."
+    )

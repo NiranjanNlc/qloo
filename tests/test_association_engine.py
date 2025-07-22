@@ -6,6 +6,7 @@ import pandas as pd
 # For now, we are just outlining the tests that any engine should pass.
 # from src.association_engine import AssociationEngine (or a concrete implementation)
 
+
 class TestAssociationEngine(unittest.TestCase):
 
     def setUp(self):
@@ -15,10 +16,12 @@ class TestAssociationEngine(unittest.TestCase):
         self.mock_engine = Mock()
 
         # Sample transaction data
-        self.sample_transactions = pd.DataFrame({
-            'transaction_id': [1, 1, 2, 2, 2, 3, 3, 4, 4, 4],
-            'product_id': [1, 2, 1, 2, 3, 2, 3, 1, 4, 5]
-        })
+        self.sample_transactions = pd.DataFrame(
+            {
+                "transaction_id": [1, 1, 2, 2, 2, 3, 3, 4, 4, 4],
+                "product_id": [1, 2, 1, 2, 3, 2, 3, 1, 4, 5],
+            }
+        )
 
     def test_engine_can_be_trained(self):
         """
@@ -45,7 +48,9 @@ class TestAssociationEngine(unittest.TestCase):
         Test case: The engine returns an empty list for a product with no known associations.
         """
         self.mock_engine.get_associations.return_value = []
-        associations = self.mock_engine.get_associations(product_id=99) # A product not in our rules
+        associations = self.mock_engine.get_associations(
+            product_id=99
+        )  # A product not in our rules
         self.assertEqual(associations, [])
         print("Test 'test_get_associations_for_product_with_no_rules' outlined.")
 
@@ -60,5 +65,6 @@ class TestAssociationEngine(unittest.TestCase):
         self.assertTrue(len(associations) <= 1)
         print("Test 'test_get_associations_respects_top_k_parameter' outlined.")
 
-if __name__ == '__main__':
-    unittest.main() 
+
+if __name__ == "__main__":
+    unittest.main()
