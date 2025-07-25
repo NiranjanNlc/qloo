@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # Test database
+  test-postgres:
+    image: postgres:15-alpine
+    container_name: qloo-test-postgres
+    environment:
+      - POSTGRES_DB=qloo_test
+      - POSTGRES_USER=qloo_test
+      - POSTGRES_PASSWORD=qloo_test_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./scripts/init_test_db.sql:/docker-entrypoint-initdb.d/init_test_db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qloo_test -d qloo_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Test cache
+  test-redis:
+    image: redis:7-alpine
+    container_name: qloo-test-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # API service for testing
+  test-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qloo-test-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=testing
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - QLOO_API_KEY=${QLOO_API_KEY:-test-key}
+      - QLOO_BASE_URL=${QLOO_BASE_URL:-https://hackathon.api.qloo.com}
+      - DATABASE_URL=postgresql://qloo_test:qloo_test_password@test-postgres:5432/qloo_test
+      - REDIS_URL=redis://test-redis:6379/0
+    volumes:
+      - ./data:/app/data
+      - ./tests/fixtures:/app/tests/fixtures:ro
+    depends_on:
+      test-postgres:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Streamlit frontend for testing
+  test-streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: qloo-test-streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - API_BASE_URL=http://test-api:8000
+      - ENVIRONMENT=testing
+    volumes:
+      - ./pages:/app/pages:ro
+      - ./data:/app/data:ro
+    depends_on:
+      test-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  default:
+    name: qloo-test-network
+
+volumes:
+  test_postgres_data:
+    driver: local
