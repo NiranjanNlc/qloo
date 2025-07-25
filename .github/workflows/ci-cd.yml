@@ -3,24 +3,46 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main, master, develop ]
+    tags: [ 'v*.*.*' ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
+  schedule:
+    # Run tests daily at 6 AM UTC
+    - cron: '0 6 * * *'
 
 env:
   PYTHON_VERSION: "3.11"
-  NODE_VERSION: "18"
-  
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Job 1: Code Quality and Unit Tests
   lint-and-test:
+    name: Code Quality & Unit Tests
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            path: ~/.cache/pip
+          - os: macos-latest
+            path: ~/Library/Caches/pip
+          - os: windows-latest
+            path: ~\AppData\Local\pip\Cache
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+      with:
+        fetch-depth: 0  # Fetch full history for better coverage reports
+        
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
@@ -29,121 +51,115 @@ jobs:
     - name: Cache pip dependencies
       uses: actions/cache@v3
       with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+        path: ${{ matrix.path }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
         restore-keys: |
+          ${{ runner.os }}-pip-${{ matrix.python-version }}-
           ${{ runner.os }}-pip-
           
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -e .
-        pip install pytest pytest-cov black flake8 mypy
+        python -m pip install --upgrade pip wheel setuptools
+        pip install -e ".[dev,test]"
+        
+    - name: Install additional test dependencies
+      run: |
+        pip install pytest-xdist pytest-benchmark pytest-mock pytest-asyncio
+        pip install coverage[toml] pytest-cov
+        pip install bandit safety
+        
+    - name: Create necessary directories
+      run: |
+        mkdir -p data logs reports tests/fixtures
         
     - name: Lint with flake8
       run: |
         # Stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Check for complexity and style issues
+        flake8 src/ tests/ --count --max-complexity=12 --max-line-length=88 --statistics
         
     - name: Format check with black
-      run: black --check --diff .
+      run: black --check --diff src/ tests/
+      
+    - name: Import sorting check with isort
+      run: isort --check-only --diff src/ tests/
       
     - name: Type check with mypy
-      run: mypy src/ --ignore-missing-imports
+      run: mypy src/ --ignore-missing-imports --show-error-codes
       
-    - name: Test with pytest
+    - name: Security scan with bandit
+      run: bandit -r src/ -f json -o bandit-report.json || true
+      
+    - name: Dependency vulnerability check
+      run: safety check --json --output safety-report.json || true
+      
+    - name: Run unit tests with coverage
+      env:
+        QLOO_API_KEY: ${{ secrets.QLOO_API_KEY || 'test-key' }}
+        ENVIRONMENT: testing
+        DEBUG: false
       run: |
-        pytest tests/ --cov=src --cov-report=xml --cov-report=html --cov-report=term
+        pytest tests/ \
+          --cov=src \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-report=term-missing \
+          --cov-fail-under=80 \
+          --junitxml=pytest-results.xml \
+          -v \
+          --tb=short \
+          --maxfail=5 \
+          -x
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-${{ matrix.python-version }}-${{ matrix.os }}
+        path: |
+          pytest-results.xml
+          htmlcov/
+          coverage.xml
+          bandit-report.json
+          safety-report.json
         
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
+      if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
-        
-  build-docker:
-    needs: lint-and-test
+        fail_ci_if_error: false
+
+  # Job 2: Integration Tests
+  integration-tests:
+    name: Integration Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
-    - name: Cache Docker layers
-      uses: actions/cache@v3
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-buildx-
-          
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-        
-    - name: Build and push API image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        push: true
-        tags: |
-          ${{ secrets.DOCKER_USERNAME }}/qloo-api:latest
-          ${{ secrets.DOCKER_USERNAME }}/qloo-api:${{ github.sha }}
-        cache-from: type=local,src=/tmp/.buildx-cache
-        cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-        
-    - name: Build and push Streamlit image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile.streamlit
-        push: true
-        tags: |
-          ${{ secrets.DOCKER_USERNAME }}/qloo-streamlit:latest
-          ${{ secrets.DOCKER_USERNAME }}/qloo-streamlit:${{ github.sha }}
-        cache-from: type=local,src=/tmp/.buildx-cache
-        cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-        
-    - name: Move cache
-      run: |
-        rm -rf /tmp/.buildx-cache
-        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-        
-  security-scan:
     needs: lint-and-test
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
-      with:
-        sarif_file: 'trivy-results.sarif'
-        
-  performance-test:
-    needs: lint-and-test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: qloo_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
     
     steps:
     - name: Checkout code
@@ -159,65 +175,342 @@ jobs:
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-          
+        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e .
-        pip install pytest-benchmark
+        pip install -e ".[dev,test]"
+        pip install pytest-postgresql pytest-redis
+        
+    - name: Wait for services
+      run: |
+        sleep 10
+        
+    - name: Setup test database
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/qloo_test
+      run: |
+        python scripts/database_setup.py
+        python scripts/load_catalog.py --test-data
+        
+    - name: Run integration tests
+      env:
+        QLOO_API_KEY: ${{ secrets.QLOO_API_KEY || 'test-key' }}
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/qloo_test
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+      run: |
+        pytest tests/integration/ -v --tb=short --durations=10
+        
+    - name: Upload integration test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-test-results
+        path: |
+          pytest-results.xml
+          logs/
+
+  # Job 3: End-to-End Tests
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,test]"
+        
+    - name: Build Docker images
+      run: |
+        docker-compose -f docker-compose.test.yml build
+        
+    - name: Start services
+      run: |
+        docker-compose -f docker-compose.test.yml up -d
+        sleep 30  # Wait for services to be ready
+        
+    - name: Wait for API to be ready
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done'
+        
+    - name: Run E2E tests
+      env:
+        API_BASE_URL: http://localhost:8000
+        FRONTEND_URL: http://localhost:8501
+      run: |
+        pytest tests/e2e/ -v --tb=short --durations=10
+        
+    - name: Collect service logs
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yml logs > docker-logs.txt
+        
+    - name: Stop services
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yml down -v
+        
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-test-results
+        path: |
+          pytest-results.xml
+          docker-logs.txt
+          screenshots/
+
+  # Job 4: Performance Tests
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,test]"
+        pip install pytest-benchmark locust
+        
+    - name: Generate test data
+      run: |
+        python scripts/generate_sample_transactions.py --count 10000
         
     - name: Run performance benchmarks
       run: |
-        python benchmarks/optimizer_benchmark.py
+        pytest tests/performance/ \
+          --benchmark-json=benchmark-results.json \
+          --benchmark-only \
+          -v
         
-    - name: Upload benchmark results
+    - name: Run load tests
+      run: |
+        # Start API in background
+        uvicorn association_api:app --host 0.0.0.0 --port 8000 &
+        API_PID=$!
+        sleep 10
+        
+        # Run load tests
+        locust -f tests/performance/locustfile.py \
+          --host http://localhost:8000 \
+          --users 50 \
+          --spawn-rate 5 \
+          --run-time 60s \
+          --headless \
+          --html=load-test-report.html
+        
+        # Stop API
+        kill $API_PID
+        
+    - name: Upload performance results
       uses: actions/upload-artifact@v3
       with:
-        name: benchmark-results
-        path: benchmarks/results/
-        
-  deploy-staging:
-    needs: [build-docker, security-scan]
+        name: performance-results
+        path: |
+          benchmark-results.json
+          load-test-report.html
+
+  # Job 5: Security Scanning
+  security-scan:
+    name: Security Scanning
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
-    environment: staging
+    needs: lint-and-test
     
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+        
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v2
+      with:
+        languages: python
+        
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+      
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+  # Job 6: Build and Push Docker Images
+  build-docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [integration-tests, e2e-tests]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/'))
+    
+    outputs:
+      api-image: ${{ steps.meta-api.outputs.tags }}
+      streamlit-image: ${{ steps.meta-streamlit.outputs.tags }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata for API
+      id: meta-api
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+        
+    - name: Build and push API image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: ${{ steps.meta-api.outputs.tags }}
+        labels: ${{ steps.meta-api.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Extract metadata for Streamlit
+      id: meta-streamlit
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-streamlit
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+        
+    - name: Build and push Streamlit image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.streamlit
+        push: true
+        tags: ${{ steps.meta-streamlit.outputs.tags }}
+        labels: ${{ steps.meta-streamlit.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Job 7: Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-docker, security-scan]
+    if: github.ref == 'refs/heads/develop'
+    environment: 
+      name: staging
+      url: https://staging.qloo-optimizer.example.com
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
     - name: Deploy to staging
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_STAGING }}
+        API_IMAGE: ${{ needs.build-docker.outputs.api-image }}
+        STREAMLIT_IMAGE: ${{ needs.build-docker.outputs.streamlit-image }}
       run: |
         echo "Deploying to staging environment..."
-        # Add staging deployment commands here
-        # Could use kubectl, docker-compose, or other deployment tools
+        echo "API Image: $API_IMAGE"
+        echo "Streamlit Image: $STREAMLIT_IMAGE"
+        # Add actual deployment commands here
         
+    - name: Run staging health checks
+      run: |
+        echo "Running staging health checks..."
+        # Add health check commands
+        
+    - name: Run staging smoke tests
+      run: |
+        pytest tests/smoke/ --env=staging -v
+
+  # Job 8: Deploy to Production
   deploy-production:
-    needs: [build-docker, security-scan, performance-test]
+    name: Deploy to Production
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    environment: production
+    needs: [build-docker, security-scan, performance-tests]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    environment: 
+      name: production
+      url: https://qloo-optimizer.example.com
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
     - name: Deploy to production
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+        API_IMAGE: ${{ needs.build-docker.outputs.api-image }}
+        STREAMLIT_IMAGE: ${{ needs.build-docker.outputs.streamlit-image }}
       run: |
         echo "Deploying to production environment..."
-        # Add production deployment commands here
-        # Example: Update Kubernetes manifests, trigger blue-green deployment, etc.
+        echo "API Image: $API_IMAGE"
+        echo "Streamlit Image: $STREAMLIT_IMAGE"
+        # Add actual deployment commands here
         
-    - name: Health check
+    - name: Run production health checks
       run: |
-        echo "Running post-deployment health checks..."
-        # Add health check commands here
+        echo "Running production health checks..."
+        # Add health check commands
+        
+    - name: Run production smoke tests
+      run: |
+        pytest tests/smoke/ --env=production -v
         
     - name: Notify deployment success
       if: success()
       uses: 8398a7/action-slack@v3
       with:
         status: success
-        text: "🚀 Production deployment successful!"
+        text: "🚀 Production deployment successful! Version: ${{ github.sha }}"
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         
@@ -226,17 +519,21 @@ jobs:
       uses: 8398a7/action-slack@v3
       with:
         status: failure
-        text: "❌ Production deployment failed!"
+        text: "❌ Production deployment failed! Version: ${{ github.sha }}"
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        
+
+  # Job 9: Cleanup
   cleanup:
-    needs: [deploy-staging, deploy-production]
+    name: Cleanup
     runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
     if: always()
     
     steps:
-    - name: Clean up old Docker images
+    - name: Clean up old images
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         echo "Cleaning up old Docker images..."
         # Add cleanup commands for old images/artifacts 
