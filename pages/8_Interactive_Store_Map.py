@@ -21,8 +21,8 @@ from typing import Dict, List, Any
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 try:
-    from layout_optimizer import LayoutOptimizer
-    from models import Product, Section
+    from layout_optimizer import SupermarketLayoutOptimizer
+    from models import Product
 except ImportError as e:
     st.warning(f"Import warning: {e}")
 
@@ -78,11 +78,25 @@ st.markdown("""
 }
 
 .optimization-suggestion {
-    background-color: #e8f4f8;
+    background-color: #f8f9fa;
     border-left: 4px solid #1f77b4;
-    padding: 10px;
+    padding: 15px;
     margin: 10px 0;
-    border-radius: 0 5px 5px 0;
+    border-radius: 0 8px 8px 0;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    color: #212529 !important;
+}
+
+.optimization-suggestion h4 {
+    color: inherit !important;
+    margin-bottom: 10px !important;
+}
+
+.optimization-suggestion p {
+    color: #495057 !important;
+    margin-bottom: 8px !important;
+    line-height: 1.5;
 }
 
 @media (max-width: 768px) {

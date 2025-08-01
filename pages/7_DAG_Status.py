@@ -362,7 +362,7 @@ def render_current_run_status(task_status: List[Dict[str, Any]]):
         }
         return color_map.get(val, '')
     
-    styled_df = display_df.style.applymap(color_state, subset=['state'])
+    styled_df = display_df.style.map(color_state, subset=['state'])
     st.dataframe(styled_df, use_container_width=True)
 
 
@@ -436,7 +436,7 @@ def render_recent_runs(dag_runs: List[Dict[str, Any]]):
         }
         return color_map.get(val, '')
     
-    styled_runs = display_runs.style.applymap(color_state, subset=['state'])
+    styled_runs = display_runs.style.map(color_state, subset=['state'])
     st.dataframe(styled_runs, use_container_width=True)
 
 
@@ -583,7 +583,7 @@ def main():
     # Manual refresh button
     if st.sidebar.button("🔄 Manual Refresh"):
         st.cache_data.clear()
-        st.experimental_rerun()
+        st.rerun()
     
     # Connection settings
     st.sidebar.subheader("🔗 Connection")

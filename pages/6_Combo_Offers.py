@@ -42,9 +42,11 @@ st.markdown("""
         border-radius: 15px;
         padding: 20px;
         margin: 10px 0;
-        color: white;
+        color: white !important;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         transition: transform 0.3s ease;
+        position: relative;
+        overflow: hidden;
     }
     
     .combo-card:hover {
@@ -68,16 +70,20 @@ st.markdown("""
         font-size: 1.3em;
         font-weight: bold;
         margin-bottom: 10px;
-        color: white;
+        color: white !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
     
     .combo-metric {
         display: inline-block;
-        background: rgba(255,255,255,0.2);
+        background: rgba(255,255,255,0.3);
         border-radius: 20px;
         padding: 5px 15px;
         margin: 5px 5px 5px 0;
         font-size: 0.9em;
+        color: white !important;
+        font-weight: 500;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
     }
     
     .discount-badge {
@@ -123,6 +129,19 @@ st.markdown("""
         margin: 2px;
         font-size: 0.8em;
         display: inline-block;
+        color: white !important;
+        font-weight: 500;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    }
+    
+    /* Ensure all text in combo cards is visible */
+    .combo-card * {
+        color: white !important;
+    }
+    
+    .combo-card strong {
+        font-weight: bold !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -703,7 +722,7 @@ def main():
     with col1:
         if st.button("🔄 Refresh Combos"):
             st.session_state.combo_data = None
-            st.experimental_rerun()
+            st.rerun()
     
     with col2:
         if st.button("✨ Generate New Combos"):

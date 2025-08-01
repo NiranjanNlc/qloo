@@ -499,7 +499,7 @@ async def get_metrics(
             "avg_lift_score": round(avg_lift, 3),
             "avg_discount_percent": round(avg_discount, 2),
             "total_revenue_potential": round(total_revenue_potential, 2),
-            "active_categories": len(set([combo.category_mix for combo in combos])),
+            "active_categories": len(set([cat for combo in combos if combo.category_mix for cat in combo.category_mix])),
             "combo_success_rate": round((high_confidence_rules / total_combos * 100) if total_combos > 0 else 0, 1)
         }
         

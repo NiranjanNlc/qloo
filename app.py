@@ -67,11 +67,86 @@ st.markdown("""
         font-size: 1.5rem;
     }
 }
+
+/* Fix for dataframe visibility */
+.stDataFrame {
+    background-color: white !important;
+    border: 1px solid #e0e0e0 !important;
+}
+
+.stDataFrame table {
+    background-color: white !important;
+    color: #262730 !important;
+    width: 100% !important;
+}
+
+.stDataFrame th {
+    background-color: #f0f2f6 !important;
+    color: #262730 !important;
+    font-weight: bold !important;
+    padding: 12px 8px !important;
+    border-bottom: 2px solid #e0e0e0 !important;
+}
+
+.stDataFrame td {
+    background-color: white !important;
+    color: #262730 !important;
+    padding: 10px 8px !important;
+    border-bottom: 1px solid #f0f0f0 !important;
+}
+
+/* Ensure styling shows up properly */
+.stDataFrame .col_heading {
+    color: #262730 !important;
+    font-weight: bold !important;
+}
+
+.stDataFrame .data {
+    color: #262730 !important;
+}
+
+/* Ensure styled dataframes are visible */
+.stDataFrame .styler {
+    background-color: white !important;
+}
+
+.stDataFrame .styler table {
+    background-color: white !important;
+}
+
+.stDataFrame .styler td, .stDataFrame .styler th {
+    color: #262730 !important;
+    opacity: 1 !important;
+}
+
+/* Fix for any opacity issues */
+div[data-testid="stDataFrame"] {
+    background-color: white !important;
+    opacity: 1 !important;
+}
+
+div[data-testid="stDataFrame"] table {
+    opacity: 1 !important;
+}
+
+/* Color coding backgrounds should be visible */
+.stDataFrame .styler td[style*="background-color"] {
+    opacity: 1 !important;
+}
+
+/* Ensure row striping is visible */
+.stDataFrame tbody tr:nth-child(even) {
+    background-color: #f9f9f9 !important;
+}
+
+.stDataFrame tbody tr:nth-child(odd) {
+    background-color: white !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # API Configuration
-API_BASE_URL = "http://localhost:8000"  # Will be configurable via environment
+API_BASE_URL = "http://localhost:8000"  # Updated to match running FastAPI backend
 
 def fetch_metrics():
     """Fetch metrics from the API."""
@@ -231,8 +306,13 @@ st.title("🛒 Qloo Supermarket Optimizer - Dashboard")
 if 'last_refresh' not in st.session_state:
     st.session_state.last_refresh = time.time()
 
-if time.time() - st.session_state.last_refresh > 30:
-    st.rerun()
+current_time = time.time()
+if isinstance(st.session_state.last_refresh, (int, float)):
+    if current_time - st.session_state.last_refresh > 30:
+        st.session_state.last_refresh = current_time
+        st.rerun()
+else:
+    st.session_state.last_refresh = current_time
 
 # Fetch metrics
 with st.spinner('Loading metrics...'):

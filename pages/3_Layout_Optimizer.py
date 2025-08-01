@@ -18,6 +18,95 @@ from qloo_client import create_qloo_client
 
 st.set_page_config(page_title="Layout Optimizer", page_icon="🏪", layout="wide")
 
+# CSS for better dataframe visibility
+st.markdown("""
+<style>
+/* Fix dataframe visibility issues */
+.stDataFrame {
+    background-color: white !important;
+    border: 1px solid #e6e6e6 !important;
+}
+
+.stDataFrame table {
+    background-color: white !important;
+    color: #000000 !important;
+    opacity: 1 !important;
+}
+
+.stDataFrame th {
+    background-color: #f8f9fa !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+    padding: 12px 8px !important;
+    border-bottom: 2px solid #dee2e6 !important;
+    opacity: 1 !important;
+}
+
+.stDataFrame td {
+    background-color: white !important;
+    color: #000000 !important;
+    padding: 10px 8px !important;
+    border-bottom: 1px solid #f0f0f0 !important;
+    opacity: 1 !important;
+}
+
+.stDataFrame .col_heading {
+    color: #000000 !important;
+    font-weight: bold !important;
+    opacity: 1 !important;
+}
+
+.stDataFrame .data {
+    color: #000000 !important;
+    opacity: 1 !important;
+}
+
+/* Override any transparency issues */
+.stDataFrame * {
+    opacity: 1 !important;
+}
+
+/* Fix for styled dataframes with background colors */
+.stDataFrame .row_heading {
+    background-color: #f8f9fa !important;
+    color: #000000 !important;
+    opacity: 1 !important;
+}
+
+/* Ensure colored cells are visible */
+.stDataFrame .col0, .stDataFrame .col1, .stDataFrame .col2, 
+.stDataFrame .col3, .stDataFrame .col4, .stDataFrame .col5,
+.stDataFrame .col6, .stDataFrame .col7, .stDataFrame .col8 {
+    opacity: 1 !important;
+    color: #000000 !important;
+}
+
+/* Ensure styled dataframes are visible */
+.stDataFrame .styler {
+    background-color: white !important;
+}
+
+.stDataFrame .styler table {
+    background-color: white !important;
+}
+
+.stDataFrame .styler td, .stDataFrame .styler th {
+    color: #262730 !important;
+    opacity: 1 !important;
+}
+
+/* Fix for any opacity issues */
+div[data-testid="stDataFrame"] {
+    background-color: white !important;
+    opacity: 1 !important;
+}
+
+div[data-testid="stDataFrame"] table {
+    opacity: 1 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown("# 🏪 Supermarket Layout Optimizer")
 st.sidebar.header("Layout Optimizer")
 
@@ -211,14 +300,14 @@ def display_recommendations_table(recommendations, catalog_df):
     # Style the dataframe
     def highlight_priority(val):
         if val == 'High':
-            return 'background-color: #d4edda'
+            return 'background-color: #d4edda; color: #155724; font-weight: bold; text-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.1)'
         elif val == 'Medium':
-            return 'background-color: #fff3cd'
+            return 'background-color: #fff3cd; color: #856404; font-weight: bold; text-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.1)'
         elif val == 'Low':
-            return 'background-color: #f8d7da'
+            return 'background-color: #f8d7da; color: #721c24; font-weight: bold; text-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.1)'
         return ''
     
-    styled_df = rec_df.style.applymap(highlight_priority, subset=['Priority'])
+    styled_df = rec_df.style.map(highlight_priority, subset=['Priority'])
     st.dataframe(styled_df, use_container_width=True)
 
 def get_priority_level(confidence_score):

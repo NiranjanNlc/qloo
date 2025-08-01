@@ -125,16 +125,19 @@ def display_association_rules(engine, catalog_df):
             
             # Color code by strength
             def color_strength(val):
-                if 'Very Strong' in val:
-                    return 'background-color: #d4edda'
-                elif 'Strong' in val:
-                    return 'background-color: #fff3cd'
-                elif 'Moderate' in val:
-                    return 'background-color: #f8d7da'
-                return ''
+                if 'Very Strong' in str(val):
+                    return 'background-color: #d4edda; color: #155724; font-weight: bold;'
+                elif 'Strong' in str(val):
+                    return 'background-color: #fff3cd; color: #856404; font-weight: bold;'
+                elif 'Moderate' in str(val):
+                    return 'background-color: #f8d7da; color: #721c24; font-weight: bold;'
+                return 'color: #495057;'
             
-            styled_df = assoc_df.style.applymap(color_strength, subset=['Strength Category'])
-            st.dataframe(styled_df, use_container_width=True)
+            styled_df = assoc_df.style.map(color_strength, subset=['Strength Category'])
+            
+            # Display with improved styling
+            st.markdown("### 📊 Association Rules Summary")
+            st.dataframe(styled_df, use_container_width=True, height=400)
             
             # Display detailed rules
             with st.expander("🔍 Detailed Association Rules"):

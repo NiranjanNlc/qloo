@@ -34,6 +34,110 @@ st.set_page_config(
     layout="wide"
 )
 
+# CSS for better dataframe visibility
+st.markdown("""
+<style>
+/* Fix dataframe visibility issues - Enhanced */
+.stDataFrame {
+    background-color: white !important;
+    border: 1px solid #e0e0e0 !important;
+    opacity: 1 !important;
+}
+
+.stDataFrame table {
+    background-color: white !important;
+    color: #000000 !important;
+    width: 100% !important;
+    opacity: 1 !important;
+}
+
+.stDataFrame th {
+    background-color: #f8f9fa !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+    padding: 12px 8px !important;
+    border-bottom: 2px solid #dee2e6 !important;
+    opacity: 1 !important;
+}
+
+.stDataFrame td {
+    background-color: white !important;
+    color: #000000 !important;
+    padding: 10px 8px !important;
+    border-bottom: 1px solid #f0f0f0 !important;
+    opacity: 1 !important;
+}
+
+.stDataFrame .col_heading {
+    color: #000000 !important;
+    font-weight: bold !important;
+    opacity: 1 !important;
+}
+
+/* Override any transparency issues */
+.stDataFrame * {
+    opacity: 1 !important;
+}
+
+/* Fix for styled dataframes with background colors */
+.stDataFrame .row_heading {
+    background-color: #f8f9fa !important;
+    color: #000000 !important;
+    opacity: 1 !important;
+}
+
+/* Ensure colored cells are visible */
+.stDataFrame .col0, .stDataFrame .col1, .stDataFrame .col2, 
+.stDataFrame .col3, .stDataFrame .col4, .stDataFrame .col5,
+.stDataFrame .col6, .stDataFrame .col7, .stDataFrame .col8 {
+    opacity: 1 !important;
+    color: #000000 !important;
+}
+
+.stDataFrame .data {
+    color: #262730 !important;
+}
+
+/* Ensure styled dataframes are visible */
+.stDataFrame .styler {
+    background-color: white !important;
+}
+
+.stDataFrame .styler table {
+    background-color: white !important;
+}
+
+.stDataFrame .styler td, .stDataFrame .styler th {
+    color: #262730 !important;
+    opacity: 1 !important;
+}
+
+/* Fix for any opacity issues */
+div[data-testid="stDataFrame"] {
+    background-color: white !important;
+    opacity: 1 !important;
+}
+
+div[data-testid="stDataFrame"] table {
+    opacity: 1 !important;
+}
+
+/* Color coding backgrounds should be visible */
+.stDataFrame .styler td[style*="background-color"] {
+    opacity: 1 !important;
+}
+
+/* Ensure row striping is visible */
+.stDataFrame tbody tr:nth-child(even) {
+    background-color: #f9f9f9 !important;
+}
+
+.stDataFrame tbody tr:nth-child(odd) {
+    background-color: white !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title("📋 Shelf Placements Analysis")
 st.markdown("Interactive analysis of product shelf placements with optimization recommendations")
 
@@ -392,13 +496,13 @@ def main():
     # Color-code confidence scores
     def color_confidence(val):
         if val >= 0.8:
-            return 'background-color: #d4edda'  # Green
+            return 'background-color: #d4edda; color: #155724; font-weight: bold; text-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.1)'  # Green
         elif val >= 0.6:
-            return 'background-color: #fff3cd'  # Yellow
+            return 'background-color: #fff3cd; color: #856404; font-weight: bold; text-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.1)'  # Yellow
         else:
-            return 'background-color: #f8d7da'  # Red
+            return 'background-color: #f8d7da; color: #721c24; font-weight: bold; text-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.1)'  # Red
     
-    styled_df = display_df[display_columns].style.applymap(
+    styled_df = display_df[display_columns].style.map(
         color_confidence, subset=['confidence_score']
     ).format({
         'confidence_score': '{:.3f}',
@@ -512,7 +616,7 @@ def main():
     with col1:
         if st.button("🔄 Refresh Data"):
             st.session_state.placement_data = None
-            st.experimental_rerun()
+            st.rerun()
     
     with col2:
         auto_refresh = st.checkbox("Auto-refresh every 30 seconds")
